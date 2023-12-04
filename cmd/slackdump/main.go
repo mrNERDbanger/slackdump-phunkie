@@ -120,6 +120,11 @@ func run(ctx context.Context, p params) error {
 	defer logStopFn()
 	ctx = dlog.NewContext(ctx, lg)
 
+	// New code to handle the export based on user input
+    	if err := export.ParseUserInput(p.appCfg.ExportName); err != nil {
+        return err
+	}
+	
 	// - setting the logger for the application.
 	p.appCfg.Options.Logger = lg
 
@@ -264,7 +269,7 @@ func parseCmdLine(args []string) (params, error) {
 	fs.BoolVar(&p.appCfg.ListFlags.Users, "u", false, "same as -list-users")
 	fs.BoolVar(&p.appCfg.ListFlags.Users, "list-users", false, "list users and their IDs. ")
 	// - export
-	fs.StringVar(&p.appCfg.ExportName, "export", "", "`name` of the directory or zip file to export the Slack workspace to."+zipHint)
+	fs.StringVar(&p.appCfg.ExportName, "export", "", "`name` of the directory or zip file to export the Slack workspace to. Conversations to export? (Conversation ID, Date (MM/DD/YY), All or Empty for full export)"+zipHint)
 	fs.Var(&p.appCfg.ExportType, "export-type", "set the export type: 'standard' or 'mattermost' (default: standard)")
 	fs.StringVar(&p.appCfg.ExportToken, "export-token", osenv.Secret(envSlackFileToken, ""), "Slack token that will be added to all file URLs, (environment: "+envSlackFileToken+")")
 	// - emoji

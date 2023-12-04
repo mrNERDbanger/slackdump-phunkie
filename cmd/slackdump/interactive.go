@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 
@@ -134,10 +135,10 @@ func surveyExport(p *params) error {
 	if err != nil {
 		return err
 	}
-	p.appCfg.Input.List, err = questConversationList("Conversations to export (leave empty or type ALL for full export): ")
-	if err != nil {
-		return err
-	}
+	p.appCfg.Input.List, err = questConversationList("Conversations to export? (Conversation ID, Date (MM/DD/YY), All or Empty for full export): ")
+  	if err != nil {
+        return err
+    	}
 	p.appCfg.Options.DumpFiles, err = ui.Confirm("Export files?", true)
 	if err != nil {
 		return err
@@ -185,27 +186,43 @@ func surveyDump(p *params) error {
 
 // questConversationList enquires the channel list.
 func questConversationList(msg string) (*structures.EntityList, error) {
-	for {
-		chanStr, err := ui.String(
-			msg,
-			"Enter whitespace separated conversation IDs or URLs to export.\n"+
-				"   - prefix with ^ (caret) to exclude the converation\n"+
-				"   - prefix with @ to read the list of converations from the file.\n\n"+
-				"For more details, see https://github.com/rusq/slackdump/blob/master/doc/usage-export.rst#providing-the-list-in-a-file",
-		)
-		if err != nil {
-			return nil, err
-		}
-		if chanStr == "" || strings.ToLower(chanStr) == "all" {
-			return new(structures.EntityList), nil
-		}
-		if el, err := structures.MakeEntityList(strings.Split(chanStr, " ")); err != nil {
-			fmt.Println(err)
-		} else {
-			return el, nil
-		}
-	}
+    const dateFormat = "01/02/06"
+
+    for {
+        // User prompt for input
+        inputStr, err := ui.String(msg, "Enter a date range (MM/DD/YY - MM/DD/YY) or 'ALL'.")
+        if err != nil {
+            return nil, err // Return error if there's an issue with input
+        }
+
+        // If 'ALL' or empty input, return EntityList for all conversations
+        if inputStr == "" || strings.ToLower(inputStr) == "all" {
+            return &structures.EntityList{AllConversations: true}, nil
+        }
+
+        // Processing date range input
+        if strings.Contains(inputStr, "-") {
+            dateRange := strings.Split(inputStr, "-")
+            if len(dateRange) != 2 {
+                fmt.Printf("Invalid date range format: %s\n", inputStr)
+                continue // Invalid format, prompt again
+            }
+
+            startDate, errStart := time.Parse(dateFormat, strings.TrimSpace(dateRange[0]))
+            endDate, errEnd := time.Parse(dateFormat, strings.TrimSpace(dateRange[1]))
+            if errStart != nil || errEnd != nil || startDate.After(endDate) {
+                fmt.Printf("Invalid date range: %s\n", inputStr)
+                continue // Invalid date, prompt again
+            }
+
+            // Return EntityList for the specified date range
+            return &structures.EntityList{DateFilter: DateFilter{Start: startDate, End: endDate}}, nil
+        } else {
+            fmt.Println("Invalid input. Please enter a valid date range or 'ALL'.")
+        }
+    }
 }
+
 
 // questOutputFile prints the output file question.
 func questOutputFile() (string, error) {
